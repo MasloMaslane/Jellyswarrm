@@ -249,6 +249,10 @@ pub async fn handle_authenticate_by_name(
         );
         Err(StatusCode::UNAUTHORIZED)
     } else {
+        // Sort by server priority (highest first) so the auth response is built
+        // from the same server that resolve_server will pick for subsequent requests.
+        successful_auths.sort_by(|a, b| b.server.priority.cmp(&a.server.priority));
+
         let user =
             resolve_or_create_login_user(&state, &payload.username, &payload.password).await?;
 
