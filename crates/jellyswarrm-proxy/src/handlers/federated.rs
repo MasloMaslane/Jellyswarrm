@@ -4,6 +4,7 @@ use axum::{
 };
 use hyper::StatusCode;
 use regex::Regex;
+use std::collections::HashSet;
 use std::sync::LazyLock;
 use tokio::task::JoinSet;
 use tracing::{debug, error, trace};
@@ -51,6 +52,16 @@ pub async fn get_items_from_all_servers(
     if sessions.is_empty() {
         return Err(StatusCode::UNAUTHORIZED);
     }
+
+    // Deduplicate sessions by server: keep only the first session per server
+    // (sessions are ordered by priority DESC, so the first one is the best choice).
+    // Without this, multiple device logins create multiple sessions for the same
+    // server, causing duplicate items in the merged response.
+    let mut seen_servers = HashSet::new();
+    let sessions: Vec<_> = sessions
+        .into_iter()
+        .filter(|(_, server)| seen_servers.insert(server.id))
+        .collect();
 
     // Create JoinSet for parallel execution
     let mut join_set = JoinSet::new();
